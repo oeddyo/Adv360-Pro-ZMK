@@ -2,8 +2,8 @@
 
 This is the firmware config for my Kinesis Advantage360 Pro: Kinesis's
 [Adv360-Pro-ZMK](https://github.com/KinesisCorporation/Adv360-Pro-ZMK) `V3.0` branch, plus my
-own base layer. I use the keyboard for my wrists, so only the base layer is customised. Every
-other layer is Kinesis's default.
+own base layer and arrow keys on the keypad layer. I use the keyboard for my wrists. Every other
+layer is Kinesis's default.
 
 Kinesis's own README is [upstream](https://github.com/KinesisCorporation/Adv360-Pro-ZMK/blob/V3.0/README.md).
 The [User's Manual](https://kinesis-ergo.com/support/kb360pro/#manuals) is the source for the
@@ -11,7 +11,7 @@ keyboard's shortcuts and lights. Check it before guessing.
 
 ## My layout
 
-Only `default_layer` in `config/adv360.keymap` differs from Kinesis's default:
+`default_layer` in `config/adv360.keymap` differs from Kinesis's default like this:
 
 | Position (Kinesis default)       | Mine                    |
 | -------------------------------- | ----------------------- |
@@ -23,6 +23,15 @@ Only `default_layer` in `config/adv360.keymap` differs from Kinesis's default:
 | Bottom-right pinky (hold for Fn) | `-`                     |
 | Left thumb, tall keys (Backspace, Delete) | Space, Cmd     |
 | Right thumb, tall keys (Enter, Space)     | Backspace, Enter |
+
+In the `keypad` layer, held with the bottom-left pinky, both hands get arrow keys, as in 2023:
+
+| Arrow | Left hand | Right hand (replaces keypad) |
+| ----- | --------- | ---------------------------- |
+| Up    | W         | I (8)                        |
+| Left  | A         | J (4)                        |
+| Down  | S         | K (5)                        |
+| Right | D         | L (6)                        |
 
 The 2023 version of this layout, on the older V2 firmware, is on the `V2.0` branch.
 
@@ -61,7 +70,7 @@ turn on the left and, straight after it, the right.
 
 ## Changing a key
 
-1. Edit `default_layer` in `config/adv360.keymap`. Key names are in the
+1. Edit the layer in `config/adv360.keymap` (`default_layer` for the base keys). Key names are in the
    [ZMK keycode list](https://zmk.dev/docs/keymaps/list-of-keycodes).
 2. Build (see below).
 3. Flash the **left half only**. The left half holds the keymap, and no settings reset is needed.
@@ -133,7 +142,8 @@ git merge upstream/V3.0
 ```
 
 - **Conflicts:** if `README.md` conflicts, keep this one. If `config/adv360.keymap` conflicts,
-  take theirs and re-apply the [My layout](#my-layout) rows to `default_layer`.
+  take theirs and re-apply [My layout](#my-layout): the table rows to `default_layer`, and the
+  arrow keys to `keypad`.
 - **Settings reset:** read `CHANGELOG.md` for what changed. If the update says a settings reset
   is needed, use the full update steps. Otherwise build and flash both halves, left then right.
 
