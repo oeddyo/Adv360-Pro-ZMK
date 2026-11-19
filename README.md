@@ -1,158 +1,147 @@
-# Kinesis Advantage 360 Pro ZMK Config
+# My Kinesis Advantage360 Pro firmware
 
-## Modifying the keymap
+This is the firmware config for my Kinesis Advantage360 Pro: Kinesis's
+[Adv360-Pro-ZMK](https://github.com/KinesisCorporation/Adv360-Pro-ZMK) `V3.0` branch, plus my
+own base layer. I use the keyboard for my wrists, so only the base layer is customised. Every
+other layer is Kinesis's default.
 
-[The ZMK documentation](https://zmk.dev/docs) covers both basic and advanced functionality and has a table of OS compatibility for keycodes. Please note that the RGB Underglow, Backlight and Power Management sections are not relevant to the Advantage 360 Pro's custom ZMK fork. For more information see [this note](#note)
+Kinesis's own README is [upstream](https://github.com/KinesisCorporation/Adv360-Pro-ZMK/blob/V3.0/README.md).
+The [User's Manual](https://kinesis-ergo.com/support/kb360pro/#manuals) is the source for the
+keyboard's shortcuts and lights. Check it before guessing.
 
-* If you would like to continue using GitHub we recommend using Nick Coutsos’s keymap editor: https://nickcoutsos.github.io/keymap-editor/.
-* If you would prefer to leave GitHub and firmware flashing behind you can perform a one-time firmware update to gain access to Clique. Get started here: https://kinesis-ergo.com/360p-clique-upgrade/.
+## My layout
 
-Certain ZMK features (e.g. combos) require knowing the exact key positions in the matrix. They can be found in both image and text format [here](assets/key-positions.md)
+Only `default_layer` in `config/adv360.keymap` differs from Kinesis's default:
 
-## Building the Firmware with GitHub Actions
+| Position (Kinesis default)       | Mine                    |
+| -------------------------------- | ----------------------- |
+| Top-left (`=`)                   | Esc                     |
+| Top-right (`-`)                  | Backspace               |
+| Left home-row pinky (Esc)        | Left Ctrl               |
+| Right Shift                      | `=`                     |
+| Bottom-left pinky (hold for Fn)  | Hold for the keypad layer |
+| Bottom-right pinky (hold for Fn) | `-`                     |
+| Left thumb, tall keys (Backspace, Delete) | Space, Cmd     |
+| Right thumb, tall keys (Enter, Space)     | Backspace, Enter |
 
-### Setup
+The 2023 version of this layout, on the older V2 firmware, is on the `V2.0` branch.
 
-1. Fork this repo.
-2. Enable GitHub Actions on your fork.
+## Keyboard cheat sheet
 
-### Build firmware
+**Mod** is the key marked "mod" at the top of the right half's inner column. The hotkeys are the
+four middle keys marked ①–④: ① and ② sit under "kp" on the left half, and ③ and ④ sit under
+"mod" on the right half.
 
-1. Push a commit to trigger the build.
-2. Download the artifact.
+| Shortcut                     | What it does                                          |
+| ---------------------------- | ----------------------------------------------------- |
+| Mod + 1 … 5                  | Switch Bluetooth profile (white, blue, red, green, off) |
+| Mod + right thumb Win/Cmd key | **Clear the pairing** on the current profile        |
+| Mod + ①                      | Left half into bootloader mode (for flashing). **Not** a Bluetooth clear. |
+| Mod + ③                      | Right half into bootloader mode                       |
+| Mod + ④ (hold)               | Show battery level on the lights                      |
+| Mod + V                      | Type the firmware version                             |
 
-## Building the Firmware in a local container
+The middle light on the left half shows the Bluetooth profile:
 
-### Setup
+- Flashing fast: ready to pair.
+- Flashing slowly: paired, but that computer is out of range.
+- Solid: connected.
 
-#### Software
+If the right half's lights flash red, the halves have lost each other. Switch both off, then
+turn on the left and, straight after it, the right.
 
-* Either Podman or Docker is required, Podman is chosen if both are installed.
-* Make is also required
+**Battery colours (Mod + ④):** green above 80%, yellow 51–79%, orange 21–50%, red below 20%.
 
-#### Windows specific
+### Re-pairing with a Mac
 
-* If compiling on Windows use WSL2 and Docker [Docker Setup Guide](https://docs.docker.com/desktop/windows/wsl/).
-* Install make using `sudo apt-get install make` inside the WSL2 instance.
-* The repository can be cloned directly into the WSL2 instance or accessed through the C: mount point WSL provides by default (`/mnt/c/path-to-repo`).
+1. If the Mac lists "Adv360 Pro" under My Devices, remove it there.
+2. Pick the profile with Mod + 1 … 5.
+3. Press Mod + the right thumb Win/Cmd key. The profile light flashes fast.
+4. Click "Adv360 Pro" under Nearby Devices in the Mac's Bluetooth settings.
 
-#### macOS specific
+## Changing a key
 
-On macOS [brew](https://brew.sh) can be used to install the required components.
+1. Edit `default_layer` in `config/adv360.keymap`. Key names are in the
+   [ZMK keycode list](https://zmk.dev/docs/keymaps/list-of-keycodes).
+2. Build (see below).
+3. Flash the **left half only**. The left half holds the keymap, and no settings reset is needed.
 
-* docker
-* [colima](https://github.com/abiosoft/colima) can be used as the docker engine
+## Building
 
-```shell
-brew install docker colima
-colima start
+Run this from the repo root, with Docker Desktop running:
+
+```sh
+make
 ```
-> Note: On Apple Silicon (ARM based) systems you need to make sure to start colima with the correct architecture for the container being used.
-> ```
-> colima start --arch x86_64
-> ```
 
-#### Ubuntu/Debian specific
+It writes `firmware/<time>-<commit>-left-clique.uf2` and `...-right-clique.uf2` (git ignores
+both). The first build downloads the toolchain and takes several minutes; later builds are quicker.
 
-```shell
-sudo apt-get install docker make
+`make` runs Docker with `-it`, which needs a real terminal. From a script or an agent, run the same
+steps without `-it`:
+
+```sh
+bin/get_version_local.sh clique > /dev/null
+docker build --tag zmk --file Dockerfile .
+docker run --rm --name zmk \
+  -v "$PWD/firmware:/app/firmware" -v "$PWD/config:/app/config:ro" \
+  -e TIMESTAMP="$(date -u +%Y%m%d%H%M)" -e COMMIT="$(git rev-parse --short HEAD)" \
+  -e BUILD_RIGHT=true zmk
+git checkout config/version.dtsi
 ```
 
-### Building the firmware
+The first line stamps the version into `config/version.dtsi`; the last line puts that file back.
 
-1. Execute `make` to build firmware for both halves or `make left` to only build firmware for the left hand side.
-2. Check the `firmware` directory for the latest firmware build. The first part of the filename is the timestamp when the firmware was built.
+## Flashing
 
-### Cleanup
+To flash a half, put it into bootloader mode and copy a `.uf2` file onto the drive it mounts:
 
-The built docker container and compiled firmware files can be deleted with `make clean`. This might be necessary if you updated your fork from V2.0 to V3.0 and are encountering build failures.
+1. Plug **only that half** into the Mac with a USB cable. Both halves mount under the same
+   name, so with both plugged in you can't tell which is which.
+2. Enter bootloader mode. Either double-press the reset button with a paperclip (in the thumb
+   cluster, where three keys meet), or press Mod + ① (left) or Mod + ③ (right). The shortcut
+   only works while the keyboard has working firmware.
+3. A drive called `ADV360PRO` appears. Copy the file:
 
-Creating the docker container takes some time. Therefore `make clean_firmware` can be used to only clean firmware without removing the docker container. Similarly `make clean_image` can be used to remove the docker container without removing compiled firmware files.
+   ```sh
+   cp -X firmware/*-left-clique.uf2 /Volumes/ADV360PRO/
+   ```
 
-## Flashing firmware
+   Swap in `right` for the right half. `-X` skips the file's metadata. Without it, `cp` prints
+   "could not copy extended attributes … Device not configured", which is harmless.
+4. The drive ejects itself when the flash is done. macOS may warn that it wasn't ejected
+   properly; ignore the warning.
 
-Follow the programming instruction on page 8 of the [Quick Start Guide](https://kinesis-ergo.com/wp-content/uploads/Advantage360-Professional-QSG-v8-25-22.pdf) to flash the firmware.
+### Full update: new firmware or halves not syncing
 
-### Overview
+The settings reset wipes Bluetooth pairings and the link between the halves. The keyboard can't
+type from the first reset until both halves have new firmware, so keep another keyboard handy,
+and use the paperclip from step 2 on.
 
-1. Extract the firmwares from the archive downloaded from the GitHub build job (If using the cloud builder) or the firmware folder (If building locally).
-1. Connect the left side keyboard to USB.
-1. Press Mod+macro1 to put the left side into bootloader mode; it should attach to your computer as a USB drive.
-1. Copy `left.uf2` to the USB drive and it will disconnect.
-1. Power off both keyboards (by unplugging them and making sure the switches are off).
-1. Turn on the left side keyboard with the switch.
-1. Connect the right side keyboard to USB to power it on.
-1. Press Mod+macro3 to put the right side into bootloader mode to attach it as a USB drive.
-1. Copy `right.uf2` to the mounted drive.
-1. Unplug the right side keyboard and turn it back on.
-1. Enjoy!
+1. Left half: `settings-reset.uf2`.
+2. Right half: `settings-reset.uf2`.
+3. Left half: `firmware/*-left-clique.uf2`.
+4. Right half: `firmware/*-right-clique.uf2`.
+5. Unplug, switch both halves off, then turn on the left and, straight after it, the right.
+6. Pair again (see [Re-pairing with a Mac](#re-pairing-with-a-mac)).
 
-> Note: There are also physical reset buttons on both keyboards which can be used to enter and exit the bootloader mode. Their location is described in section 2.7 on page 9 in the [User Manual](https://kinesis-ergo.com/wp-content/uploads/Advantage360-ZMK-KB360-PRO-Users-Manual-v3-10-23.pdf) and use is described in section 5.9 on page 14. 
+## Pulling Kinesis updates
 
-> Note: Some operating systems wont always treat the drive as ejected after the settings-reset file is flashed or may throw a spurious error, this doesn't mean that the flashing process has failed.
+```sh
+git fetch upstream
+git merge upstream/V3.0
+```
 
-### Upgrading from V2 to V3
+- **Conflicts:** if `README.md` conflicts, keep this one. If `config/adv360.keymap` conflicts,
+  take theirs and re-apply the [My layout](#my-layout) rows to `default_layer`.
+- **Settings reset:** read `CHANGELOG.md` for what changed. If the update says a settings reset
+  is needed, use the full update steps. Otherwise build and flash both halves, left then right.
 
-If you encounter a git conflict when updating your repository to V3.0 please follow the instructions on how to resolve it [here](UPGRADE.md).
+Remotes: `origin` is this repo; `upstream` is
+`https://github.com/KinesisCorporation/Adv360-Pro-ZMK.git`.
 
-Updating from V2.0 based firmwares to V3.0 based firmwares can be a rather complex process. There are reset files for every major firmware revision as well as documentation on the update process available [here](https://kinesis-ergo.com/support/kb360pro/#firmware-updates).
+## Clique
 
-## Versioning
-
-Starting on 11/15/2023 the Advantage 360 Pro will now automatically record the compilation date, branch and Git commit hash in a macro that can be accessed with Mod+V. This will type out the following string: YYYYMMDD-XXXX-YYYYYY, where XXXX is the first 4 characters of the Git branch and YYYYYY is the Git commit hash. In addition to this the builds compiled by GitHub actions are now timestamped and also record the commit hash in the filename. 
-
-## N-Key Rollover
-
-By default this keyboard has NKRO enabled, however for compatibility reasons the higher ranges are not enabled. If you want to use F13-F24 or the INTL1-9 keys with NKRO enabled you can change `CONFIG_ZMK_HID_KEYBOARD_EXTENDED_REPORT=n` to `CONFIG_ZMK_HID_KEYBOARD_EXTENDED_REPORT=y` in [adv360_left_defconfig](/config/boards/arm/adv360/adv360_left_defconfig#L65)
-
-## Battery reporting
-
-By default reporting the battery level over BLE is disabled as this can cause some computers to spontaneously wake up repeatedly. If you'd like to enable this functionality change `CONFIG_BT_BAS=n` to  `CONFIG_BT_BAS=y` in [adv360_left_defconfig](/config/boards/arm/adv360/adv360_left_defconfig#L58).
-
-## Modifier indicator color
-
-The color of the CAPS/NUM/SCROLL LOCK indicator LEDs may be configured by specifying a hexadecimal RGB color code. For example, `CONFIG_ZMK_RGB_UNDERGLOW_MOD_COLOR=0xFF0000` would give red indicator colors. In order to set the indicator color on both modules, ensure that both [adv360_left_defconfig](/config/boards/arm/adv360/adv360_left_defconfig) and [adv360_right_defconfig](/config/boards/arm/adv360/adv360_right_defconfig) have been updated.
-
-## Layer colors
-
-A total of 32 layers are supported by ZMK, with the highest currently active layer displayed using the layer LEDs on each of the left and right modules. All possible colors are listed below; for the first 8 layers the same color is displayed on both modules. After that, only the right module color will cycle through until "rolling over", which will cause the left module color to change as well (and this then repeats). To avoid confusion, the black/off LED color is only used for layer 0.
-
-| Layer # | L/R | Layer # | L/R | Layer # | L/R | Layer # | L/R |
-| ---: | :---: | ---: | :---: | ---: | :---: | ---: | :---: |
-| 0 | <img valign='middle' src='assets/swatches/000000.svg'/> <img valign='middle' src='assets/swatches/000000.svg'/> | 8 | <img valign='middle' src='assets/swatches/FFFFFF.svg'/> <img valign='middle' src='assets/swatches/0000FF.svg'/> | 16 | <img valign='middle' src='assets/swatches/0000FF.svg'/> <img valign='middle' src='assets/swatches/FF0000.svg'/> | 24 | <img valign='middle' src='assets/swatches/00FF00.svg'/> <img valign='middle' src='assets/swatches/00FFFF.svg'/> |
-| 1 | <img valign='middle' src='assets/swatches/FFFFFF.svg'/> <img valign='middle' src='assets/swatches/FFFFFF.svg'/> | 9 | <img valign='middle' src='assets/swatches/FFFFFF.svg'/> <img valign='middle' src='assets/swatches/00FF00.svg'/> | 17 | <img valign='middle' src='assets/swatches/0000FF.svg'/> <img valign='middle' src='assets/swatches/FF00FF.svg'/> | 25 | <img valign='middle' src='assets/swatches/00FF00.svg'/> <img valign='middle' src='assets/swatches/FFFF00.svg'/> |
-| 2 | <img valign='middle' src='assets/swatches/0000FF.svg'/> <img valign='middle' src='assets/swatches/0000FF.svg'/> | 10 | <img valign='middle' src='assets/swatches/FFFFFF.svg'/> <img valign='middle' src='assets/swatches/FF0000.svg'/> | 18 | <img valign='middle' src='assets/swatches/0000FF.svg'/> <img valign='middle' src='assets/swatches/00FFFF.svg'/> | 26 | <img valign='middle' src='assets/swatches/FF0000.svg'/> <img valign='middle' src='assets/swatches/FFFFFF.svg'/> |
-| 3 | <img valign='middle' src='assets/swatches/00FF00.svg'/> <img valign='middle' src='assets/swatches/00FF00.svg'/> | 11 | <img valign='middle' src='assets/swatches/FFFFFF.svg'/> <img valign='middle' src='assets/swatches/FF00FF.svg'/> | 19 | <img valign='middle' src='assets/swatches/0000FF.svg'/> <img valign='middle' src='assets/swatches/FFFF00.svg'/> | 27 | <img valign='middle' src='assets/swatches/FF0000.svg'/> <img valign='middle' src='assets/swatches/0000FF.svg'/> |
-| 4 | <img valign='middle' src='assets/swatches/FF0000.svg'/> <img valign='middle' src='assets/swatches/FF0000.svg'/> | 12 | <img valign='middle' src='assets/swatches/FFFFFF.svg'/> <img valign='middle' src='assets/swatches/00FFFF.svg'/> | 20 | <img valign='middle' src='assets/swatches/00FF00.svg'/> <img valign='middle' src='assets/swatches/FFFFFF.svg'/> | 28 | <img valign='middle' src='assets/swatches/FF0000.svg'/> <img valign='middle' src='assets/swatches/00FF00.svg'/> |
-| 5 | <img valign='middle' src='assets/swatches/FF00FF.svg'/> <img valign='middle' src='assets/swatches/FF00FF.svg'/> | 13 | <img valign='middle' src='assets/swatches/FFFFFF.svg'/> <img valign='middle' src='assets/swatches/FFFF00.svg'/> | 21 | <img valign='middle' src='assets/swatches/00FF00.svg'/> <img valign='middle' src='assets/swatches/0000FF.svg'/> | 29 | <img valign='middle' src='assets/swatches/FF0000.svg'/> <img valign='middle' src='assets/swatches/FF00FF.svg'/> |
-| 6 | <img valign='middle' src='assets/swatches/00FFFF.svg'/> <img valign='middle' src='assets/swatches/00FFFF.svg'/> | 14 | <img valign='middle' src='assets/swatches/0000FF.svg'/> <img valign='middle' src='assets/swatches/FFFFFF.svg'/> | 22 | <img valign='middle' src='assets/swatches/00FF00.svg'/> <img valign='middle' src='assets/swatches/FF0000.svg'/> | 30 | <img valign='middle' src='assets/swatches/FF0000.svg'/> <img valign='middle' src='assets/swatches/00FFFF.svg'/> |
-| 7 | <img valign='middle' src='assets/swatches/FFFF00.svg'/> <img valign='middle' src='assets/swatches/FFFF00.svg'/> | 15 | <img valign='middle' src='assets/swatches/0000FF.svg'/> <img valign='middle' src='assets/swatches/00FF00.svg'/> | 23 | <img valign='middle' src='assets/swatches/00FF00.svg'/> <img valign='middle' src='assets/swatches/FF00FF.svg'/> | 31 | <img valign='middle' src='assets/swatches/FF0000.svg'/> <img valign='middle' src='assets/swatches/FFFF00.svg'/> |
-
-## Changelog
-
-The changelog for both the config repo and the underlying ZMK fork that the config repo builds against can be found [here](CHANGELOG.md).
-
-## Beta testing
-
-The Advantage 360 Pro is always getting updates and refinements. If you are willing to beta test you can follow [this guide from ZMK](https://zmk.dev/docs/features/beta-testing#testing-features) on how to change where your config repo points to. The `west.yml` file that is mentioned is located in config/. [This link](config/west.yml) can take you to the file. Typically you will only need to change the `revision: ` to match the beta branch. There is currently no beta branch available for testing.
-
-Feedback on beta branches should be submitted as a GitHub issue on the base ZMK repository as opposed to this config repository.
-
-In the event of a major update the beta branch may not be compatible with the current mainline version of the config repository. If this is the case it will be detailed here along with instructions on how to update.
-
-## Note
-
-By default this config repository references [a customised version of ZMK](https://github.com/ReFil/zmk/tree/adv360-z3.5) with Advantage 360 Pro specific functionality and changes over [base ZMK](https://github.com/zmkfirmware/zmk). The Kinesis fork is regularly updated to bring the latest updates and changes from base ZMK however will not always be completely up to date, some features such as new keycodes will not be immediately available on the 360 Pro after they are implemented in base ZMK.
-
-Whilst the Advantage 360 Pro is compatible with base ZMK (The pull request to merge it can be seen [here](https://github.com/zmkfirmware/zmk/pull/1454) if you want to see how to implement it) some of the more advanced features (the indicator RGB leds) will not work, and Kinesis cannot provide customer service for usage of base ZMK. Likewise the ZMK community cannot provide support for either the Kinesis keymap editor, nor any usage of the Kinesis custom fork.
-
-## Other support
-
-Further support resources can be found on Kinesis.com:
-
-* https://kinesis-ergo.com/support/kb360pro/#firmware-updates
-* https://kinesis-ergo.com/support/kb360pro/#manuals
-
-In the event of a hardware issue it may be necessary to open a support ticket directly with Kinesis as opposed to a GitHub issue in this repository.
-* https://kinesis-ergo.com/support/kb360pro/#ticket
-
+The firmware built here works with Kinesis Clique, an app for changing keys without flashing.
+Clique saves its changes on the keyboard, not in this repo, and the next settings reset wipes them.
+Make lasting changes in `config/adv360.keymap`.
